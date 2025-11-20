@@ -1,9 +1,16 @@
 package ml
 
-import "io"
+import (
+	"bufio"
+	"io"
+)
 
 type Tokenizer interface {
 	Next() (Token, error)
+}
+
+func NewTokenizer(reader io.Reader) Tokenizer {
+	return &tokenizer{reader: *bufio.NewReader(reader)}
 }
 
 type Token struct {
@@ -14,10 +21,6 @@ type Token struct {
 	End   int
 }
 
-func NewTokenizer(reader *io.Reader) Tokenizer {
-	return tokenizer{reader: reader}
-}
-
 const (
 	Block = iota
 	End
@@ -25,9 +28,86 @@ const (
 )
 
 type tokenizer struct {
-	reader *io.Reader
+	reader   bufio.Reader
+	position int
 }
 
-func (t tokenizer) Next() (Token, error) {
-	return Token{}, nil
+func (t *tokenizer) Next() (Token, error) {
+	startSymbol, err := t.reader.ReadByte()
+	if err != nil {
+		return Token{}, err
+	}
+	t.position++
+
+	for {
+		switch startSymbol {
+		case ' ':
+			startSymbol, err = t.reader.ReadByte()
+			if err != nil {
+				return Token{}, err
+			}
+			t.position++
+			continue
+		case '\t':
+			startSymbol, err = t.reader.ReadByte()
+			if err != nil {
+				return Token{}, err
+			}
+			t.position++
+			continue
+		case '\n':
+			startSymbol, err = t.reader.ReadByte()
+			if err != nil {
+				return Token{}, err
+			}
+			t.position++
+			continue
+		case '\r':
+			startSymbol, err = t.reader.ReadByte()
+			if err != nil {
+				return Token{}, err
+			}
+			t.position++
+			continue
+
+		case '/':
+			blockToken := Token{Start: t.position, Name: "block", Type: Block}
+
+			for {
+				symbol, err := t.reader.ReadByte()
+				if err != nil {
+					return blockToken, err
+				}
+				t.position++
+
+				if symbol == '/' {
+					blockToken.End = t.position
+					break
+				}
+
+				blockToken.Value += string(symbol)
+			}
+
+			return blockToken, nil
+		default:
+			textToken := Token{Start: t.position, Name: "text", Type: Text, Value: string(startSymbol)}
+
+			for {
+				symbol, err := t.reader.ReadByte()
+				if err != nil {
+					return textToken, err
+				}
+				t.position++
+
+				if symbol == '/' {
+					textToken.End = t.position
+					break
+				}
+
+				textToken.Value += string(symbol)
+			}
+
+			return textToken, nil
+		}
+	}
 }
