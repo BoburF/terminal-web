@@ -11,7 +11,7 @@ import (
 func main() {
 	fmt.Println("Welcome to TWeb")
 
-	const code = `basbdasd
+	const code = `                          basbdasd
 		asbasbdaksdb /block/ bad boy /end/
 		// / // / /    /`
 

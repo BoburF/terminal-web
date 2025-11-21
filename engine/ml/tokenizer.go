@@ -40,36 +40,16 @@ func (t *tokenizer) Next() (Token, error) {
 	t.position++
 
 	for {
-		switch startSymbol {
-		case ' ':
+		if t.isWhitespace(startSymbol) {
 			startSymbol, err = t.reader.ReadByte()
 			if err != nil {
 				return Token{}, err
 			}
 			t.position++
 			continue
-		case '\t':
-			startSymbol, err = t.reader.ReadByte()
-			if err != nil {
-				return Token{}, err
-			}
-			t.position++
-			continue
-		case '\n':
-			startSymbol, err = t.reader.ReadByte()
-			if err != nil {
-				return Token{}, err
-			}
-			t.position++
-			continue
-		case '\r':
-			startSymbol, err = t.reader.ReadByte()
-			if err != nil {
-				return Token{}, err
-			}
-			t.position++
-			continue
+		}
 
+		switch startSymbol {
 		case '/':
 			blockToken := Token{Start: t.position, Name: "block", Type: Block}
 
@@ -109,5 +89,14 @@ func (t *tokenizer) Next() (Token, error) {
 
 			return textToken, nil
 		}
+	}
+}
+
+func (t *tokenizer) isWhitespace(symbol byte) bool {
+	switch symbol {
+	case ' ', '\t', '\n', '\r':
+		return true
+	default:
+		return false
 	}
 }
