@@ -2,11 +2,19 @@ package ml
 
 import (
 	"bufio"
+	"fmt"
 	"io"
+)
+
+const (
+	Block    = "block"
+	EndBlock = "end"
+	Text     = "text"
 )
 
 type Tokenizer interface {
 	Next() (Token, error)
+	IsNextAvailable() bool
 }
 
 func NewTokenizer(reader io.Reader) Tokenizer {
@@ -15,21 +23,19 @@ func NewTokenizer(reader io.Reader) Tokenizer {
 
 type Token struct {
 	Name  string
-	Type  int
 	Value string
 	Start int
 	End   int
 }
 
-const (
-	Block = iota
-	End
-	Text
-)
-
 type tokenizer struct {
 	reader   bufio.Reader
 	position int
+}
+
+func (t *tokenizer) IsNextAvailable() bool {
+	_, err := t.reader.Peek(1)
+	return err == nil
 }
 
 func (t *tokenizer) Next() (Token, error) {
@@ -51,7 +57,7 @@ func (t *tokenizer) Next() (Token, error) {
 
 		switch startSymbol {
 		case '/':
-			blockToken := Token{Start: t.position, Name: "block", Type: Block}
+			blockToken := Token{Start: t.position, Name: Block}
 
 			for {
 				symbol, err := t.reader.ReadByte()
@@ -68,24 +74,32 @@ func (t *tokenizer) Next() (Token, error) {
 				blockToken.Value += string(symbol)
 			}
 
+			blockToken.Name = blockToken.Value
+
 			return blockToken, nil
 		default:
-			textToken := Token{Start: t.position, Name: "text", Type: Text, Value: string(startSymbol)}
+			textToken := Token{Start: t.position, Name: Text, Value: string(startSymbol)}
 
 			for {
-				symbol, err := t.reader.ReadByte()
+				symbol, err := t.reader.Peek(1)
+				if err != nil {
+					return textToken, err
+				}
+
+				if symbol[0] == '/' {
+					textToken.End = t.position
+					break
+				}
+
+				sym, err := t.reader.ReadByte()
 				if err != nil {
 					return textToken, err
 				}
 				t.position++
 
-				if symbol == '/' {
-					textToken.End = t.position
-					break
-				}
-
-				textToken.Value += string(symbol)
+				textToken.Value += string(sym)
 			}
+			fmt.Println("value", textToken.Value)
 
 			return textToken, nil
 		}
