@@ -1,22 +1,29 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/BoburF/terminal-web/engine/ml"
 )
 
 func main() {
-	fmt.Println("Welcome to TWeb")
+	pathFile := flag.String("path", "/path/file.ml", "path to read the file")
 
-	const code = `                          basbdasd
-		asbasbdaksdb /block/ what up bad boy /block/ Bobur /end/ /end/
-		// / // / /    //block/ hey what up I said!/end/`
+	flag.Parse()
 
-	reader := strings.NewReader(code)
+	file, err := os.Open(*pathFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
 
-	tokenizer := ml.NewTokenizer(reader)
+	tokenizer := ml.NewTokenizer(file)
 
 	parser := ml.NewParser()
 
@@ -26,7 +33,20 @@ func main() {
 		return
 	}
 
-	GoThrough(ast, 0)
+	dir := filepath.Dir(*pathFile)
+	base := filepath.Base(*pathFile)
+	nameWithoutExt := strings.TrimSuffix(base, filepath.Ext(base))
+	newPath := filepath.Join(dir, nameWithoutExt+".json")
+
+	astJSON, err := json.Marshal(ast)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = os.WriteFile(newPath, astJSON, 0o644)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func GoThrough(ast ml.Node, tabs int) {

@@ -15,9 +15,9 @@ type Parser interface {
 }
 
 type Node struct {
-	Type     string
-	Value    string
-	Children []Node
+	Type     string `json:"type"`
+	Value    string `json:"value"`
+	Children []Node `json:"children"`
 }
 
 func NewParser() Parser {
