@@ -11,7 +11,7 @@ func main() {
 	fmt.Println("Welcome to TWeb")
 
 	const code = `                          basbdasd
-		asbasbdaksdb /block/ what up bad boy /end/
+		asbasbdaksdb /block/ what up bad boy /block/ Bobur /end/ /end/
 		// / // / /    //block/ hey what up I said!/end/`
 
 	reader := strings.NewReader(code)
@@ -26,7 +26,15 @@ func main() {
 		return
 	}
 
+	GoThrough(ast, 0)
+}
+
+func GoThrough(ast ml.Node, tabs int) {
 	for _, node := range ast.Children {
-		fmt.Println(node.Type, node.Value)
+		fmt.Println(strings.Repeat(" ", tabs), node.Type, node.Value)
+		if len(node.Children) > 0 {
+			newTabs := tabs + 1
+			GoThrough(node, newTabs)
+		}
 	}
 }

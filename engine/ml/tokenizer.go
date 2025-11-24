@@ -2,7 +2,6 @@ package ml
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 )
 
@@ -99,7 +98,6 @@ func (t *tokenizer) Next() (Token, error) {
 
 				textToken.Value += string(sym)
 			}
-			fmt.Println("value", textToken.Value)
 
 			return textToken, nil
 		}
