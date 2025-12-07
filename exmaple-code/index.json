@@ -2,8 +2,17 @@
   "type": "AST",
   "value": "AST",
   "children": [
-    { "type": "block", "value": "Window is great\n", "children": [] },
+    {
+      "type": "block",
+      "value": "Window is great\n    ",
+      "children": [
+        {
+          "type": "iblock",
+          "value": "this is greatnline\n    ",
+          "children": []
+        }
+      ]
+    },
     { "type": "block", "value": "Window is not great\n", "children": [] }
   ]
 }
-

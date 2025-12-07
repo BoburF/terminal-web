@@ -6,9 +6,10 @@ import (
 )
 
 const (
-	Block    = "block"
-	EndBlock = "end"
-	Text     = "text"
+	Block       = "block"
+	InlineBlock = "iblock"
+	EndBlock    = "end"
+	Text        = "text"
 )
 
 type Tokenizer interface {

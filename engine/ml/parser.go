@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	Ast       = "AST"
-	BlockNode = "block"
-	TextNode  = "text"
+	Ast             = "AST"
+	BlockNode       = "block"
+	InlineBlockNode = "iblock"
+	TextNode        = "text"
 )
 
 type Parser interface {
@@ -48,6 +49,14 @@ func (p *parser) Analyze(tokenizer Tokenizer) (Node, error) {
 			}
 
 			block := Node{Type: BlockNode, Children: make([]Node, 0)}
+			current.Children = append(current.Children, block)
+			stack = append(stack, &current.Children[len(current.Children)-1])
+		case InlineBlock:
+			if token.Value != InlineBlock {
+				continue
+			}
+
+			block := Node{Type: InlineBlockNode, Children: make([]Node, 0)}
 			current.Children = append(current.Children, block)
 			stack = append(stack, &current.Children[len(current.Children)-1])
 		case Text:
