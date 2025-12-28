@@ -2,12 +2,11 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"slices"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/net/html"
 )
 
@@ -28,32 +27,30 @@ func main() {
 
 	for node := range doc.Descendants() {
 		if node.Data == "head" {
-			sciptBinding, err := foundHTMLNode(node, "link", "href")
+			foundScriptToBind(node)
+		}
+
+		if node.Data == "body" {
+			// Parse all elements from the body
+			boxes, inputs, buttons, err := drawTui(node)
 			if err != nil {
 				log.Fatalln(err)
 			}
 
-			pathAttr, err := foundAttr(sciptBinding.Attr, "href")
-			if err != nil {
+			// Create initial state
+			initialState := State{
+				boxes:   boxes,
+				inputs:  inputs,
+				buttons: buttons,
+				focused: 0,
+			}
+
+			p := tea.NewProgram(initialState)
+			if _, err := p.Run(); err != nil {
 				log.Fatalln(err)
 			}
 
-			file, err := os.OpenFile(RootPath+pathAttr.Val, os.O_RDONLY, 0o644)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			script, err := io.ReadAll(file)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			fmt.Println(pathAttr)
-
-			err = luaRegister(string(script))
-			if err != nil {
-				log.Fatalln(err)
-			}
+			return
 		}
 	}
 }
@@ -62,6 +59,18 @@ func foundHTMLNode(doc *html.Node, nodeName string, attrName string) (*html.Node
 	for node := range doc.ChildNodes() {
 		if node.Data == nodeName && slices.ContainsFunc(node.Attr, func(attr html.Attribute) bool {
 			return attr.Key == attrName
+		}) {
+			return node, nil
+		}
+	}
+
+	return nil, errors.New("didn't found the tag")
+}
+
+func foundHTMLNodeWithAttr(doc *html.Node, nodeName string, attrName string, attrValue string) (*html.Node, error) {
+	for node := range doc.ChildNodes() {
+		if node.Data == nodeName && slices.ContainsFunc(node.Attr, func(attr html.Attribute) bool {
+			return attr.Key == attrName && attr.Val == attrValue
 		}) {
 			return node, nil
 		}
