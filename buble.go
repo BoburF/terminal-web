@@ -1,16 +1,23 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"strings"
 )
 
+type Box struct {
+	texts  []string
+	inputs []textinput.Model
+}
+
 type State struct {
-	boxes   []string
-	inputs  []textinput.Model
-	buttons []string
-	focused int
+	boxes    []Box
+	inputs   []textinput.Model
+	buttons  []string
+	handlers map[string]func() int
+	focused  int
 }
 
 func (s State) Init() tea.Cmd {
@@ -25,6 +32,11 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		handler := s.handlers[msg.String()]
+		if handler != nil {
+			handler()
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return s, tea.Quit
@@ -51,17 +63,20 @@ func (s State) View() string {
 	var b strings.Builder
 
 	for _, box := range s.boxes {
-		b.WriteString(box)
-		b.WriteString("\n")
-	}
-
-	for i, input := range s.inputs {
-		if i == s.focused {
-			input.Focus()
-		} else {
-			input.Blur()
+		for _, text := range box.texts {
+			b.WriteString(text)
+			b.WriteString("\n")
 		}
-		b.WriteString(input.View())
+
+		for i, input := range box.inputs {
+			if i == s.focused {
+				input.Focus()
+			} else {
+				input.Blur()
+			}
+			b.WriteString(input.View())
+			b.WriteString("\n")
+		}
 		b.WriteString("\n")
 	}
 
@@ -71,6 +86,7 @@ func (s State) View() string {
 			b.WriteString(button)
 			b.WriteString(" ")
 		}
+		b.WriteString("\n")
 	}
 
 	return b.String()

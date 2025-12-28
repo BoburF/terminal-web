@@ -32,14 +32,14 @@ func main() {
 
 		if node.Data == "body" {
 			// Parse all elements from the body
-			boxes, inputs, buttons, err := drawTui(node)
+			_, _, inputs, buttons, err := drawTui(node)
 			if err != nil {
 				log.Fatalln(err)
 			}
 
 			// Create initial state
 			initialState := State{
-				boxes:   boxes,
+				boxes:   make([]Box, 0),
 				inputs:  inputs,
 				buttons: buttons,
 				focused: 0,

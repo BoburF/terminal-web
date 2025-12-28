@@ -1,16 +1,16 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/net/html"
-	"strings"
 )
 
 var boxStyle = lipgloss.NewStyle().
 	Border(lipgloss.RoundedBorder()).
-	Padding(1, 2).
-	MarginBottom(1)
+	Padding(1)
 
 func extractTextContent(node *html.Node) string {
 	if node.Type == html.TextNode {
@@ -24,8 +24,9 @@ func extractTextContent(node *html.Node) string {
 	return strings.TrimSpace(result.String())
 }
 
-func drawTui(node *html.Node) ([]string, []textinput.Model, []string, error) {
+func drawTui(node *html.Node) ([]string, []string, []textinput.Model, []string, error) {
 	var boxes []string
+	var text []string
 	var inputs []textinput.Model
 	var buttons []string
 
@@ -33,7 +34,7 @@ func drawTui(node *html.Node) ([]string, []textinput.Model, []string, error) {
 	case "h1":
 		content := extractTextContent(node)
 		if content != "" {
-			boxes = append(boxes, boxStyle.Render(content))
+			text = append(text, boxStyle.Render(content))
 		}
 	case "input":
 		ti := textinput.New()
@@ -51,21 +52,25 @@ func drawTui(node *html.Node) ([]string, []textinput.Model, []string, error) {
 		if content != "" {
 			buttonStyle := lipgloss.NewStyle().
 				Border(lipgloss.NormalBorder()).
-				Padding(0, 1).
-				MarginRight(1)
+				Padding(1, 1)
+
 			buttons = append(buttons, buttonStyle.Render(content))
 		}
+	case "div":
+		boxes = append(boxes, text...)
+		boxes = append(boxes, buttons...)
 	}
 
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		childBoxes, childInputs, childButtons, err := drawTui(child)
+		childBoxes, childTexts, childInputs, childButtons, err := drawTui(child)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		boxes = append(boxes, childBoxes...)
+		text = append(text, childTexts...)
 		inputs = append(inputs, childInputs...)
 		buttons = append(buttons, childButtons...)
 	}
 
-	return boxes, inputs, buttons, nil
+	return boxes, text, inputs, buttons, nil
 }

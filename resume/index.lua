@@ -1,3 +1,3 @@
-bind("Ctrl+c", function()
+bind("ctrl+c", function()
 	quit()
 end)
