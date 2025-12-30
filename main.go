@@ -31,25 +31,15 @@ func main() {
 		}
 
 		if node.Data == "body" {
-			// Parse all elements from the body
-			_, _, inputs, buttons, err := drawTui(node)
+			state, err := drawTui(node)
 			if err != nil {
 				log.Fatalln(err)
 			}
 
-			// Create initial state
-			initialState := State{
-				boxes:   make([]Box, 0),
-				inputs:  inputs,
-				buttons: buttons,
-				focused: 0,
-			}
-
-			p := tea.NewProgram(initialState)
+			p := tea.NewProgram(state)
 			if _, err := p.Run(); err != nil {
 				log.Fatalln(err)
 			}
-
 			return
 		}
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -35,8 +34,6 @@ func foundScriptToBind(node *html.Node) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	fmt.Println(pathAttr)
 
 	err = luaRegister(string(script))
 	if err != nil {
