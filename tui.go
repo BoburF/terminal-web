@@ -5,13 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/net/html"
 )
-
-var boxStyle = lipgloss.NewStyle().
-	Border(lipgloss.RoundedBorder()).
-	Padding(1)
 
 func drawTui(doc *html.Node) (State, error) {
 	boxes := make([]Box, 0)
@@ -44,6 +39,20 @@ func drawTui(doc *html.Node) (State, error) {
 				text := getText(childNode)
 				box.texts = append(box.texts, text)
 				box.context = append(box.context, text)
+			case html.ElementNode:
+				if childNode.Data == "input" {
+					input := textinput.New()
+
+					placeholderValue, err := foundAttr(&childNode.Attr, "value")
+					if err != nil {
+						log.Fatalln(err)
+					}
+
+					input.Placeholder = placeholderValue.Val
+
+					box.inputs = append(box.inputs, input)
+					box.context = append(box.context, input)
+				}
 			default:
 				continue
 			}

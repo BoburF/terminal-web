@@ -16,7 +16,9 @@ type Box struct {
 }
 
 type State struct {
-	boxes []Box
+	Width  int
+	Height int
+	boxes  []Box
 }
 
 func (s State) Init() tea.Cmd {
@@ -45,12 +47,14 @@ func (s State) View() string {
 			continue
 		}
 
-		boxStyle := lipgloss.NewStyle().Border(lipgloss.BlockBorder()).Padding(1)
+		boxStyle := lipgloss.NewStyle().Border(lipgloss.BlockBorder()).Padding(1).Width(s.Width).Align(lipgloss.Center)
 		var boxStr strings.Builder
 		for _, context := range box.context {
 			switch ctx := context.(type) {
 			case string:
 				boxStr.WriteString(lipgloss.NewStyle().Bold(true).Render(ctx) + "\n")
+			case textinput.Model:
+				boxStr.WriteString(ctx.View() + "\n")
 			}
 		}
 

@@ -2,12 +2,14 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"slices"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/net/html"
+	"golang.org/x/term"
 )
 
 const (
@@ -15,6 +17,19 @@ const (
 )
 
 func main() {
+	fd := int(os.Stdout.Fd())
+
+	if !term.IsTerminal(fd) {
+		fmt.Println("Not a terminal, cannot get size.")
+		return
+	}
+
+	width, height, err := term.GetSize(fd)
+	if err != nil {
+		fmt.Printf("Error getting terminal size: %v\n", err)
+		return
+	}
+
 	file, err := os.OpenFile(RootPath+"index.html", os.O_RDONLY, 0o644)
 	if err != nil {
 		log.Fatalln(err)
@@ -35,6 +50,8 @@ func main() {
 			if err != nil {
 				log.Fatalln(err)
 			}
+			state.Width = width
+			state.Height = height
 
 			p := tea.NewProgram(state)
 			if _, err := p.Run(); err != nil {
@@ -69,8 +86,8 @@ func foundHTMLNodeWithAttr(doc *html.Node, nodeName string, attrName string, att
 	return nil, errors.New("didn't found the tag")
 }
 
-func foundAttr(attr []html.Attribute, attrName string) (html.Attribute, error) {
-	for _, attr := range attr {
+func foundAttr(attr *[]html.Attribute, attrName string) (html.Attribute, error) {
+	for _, attr := range *attr {
 		if attr.Key == attrName {
 			return attr, nil
 		}

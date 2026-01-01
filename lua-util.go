@@ -20,7 +20,7 @@ func foundScriptToBind(node *html.Node) {
 		log.Fatalln(err)
 	}
 
-	pathAttr, err := foundAttr(sciptBinding.Attr, Href)
+	pathAttr, err := foundAttr(&sciptBinding.Attr, Href)
 	if err != nil {
 		log.Fatalln(err)
 	}
