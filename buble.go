@@ -40,8 +40,12 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (s State) View() string {
-	var outputStr strings.Builder
-	boxStyle := lipgloss.NewStyle().Border(lipgloss.BlockBorder()).Padding(1).Width(s.Width - 2).Align(lipgloss.Center)
+	var allContent []string
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.BlockBorder()).
+		Padding(1).
+		Width(s.Width - 2).
+		Align(lipgloss.Center)
 
 	for _, box := range s.boxes {
 		if !box.isNotEmplty {
@@ -58,8 +62,8 @@ func (s State) View() string {
 			}
 		}
 
-		outputStr.WriteString(boxStyle.Render(strings.Join(boxStr, "\n")))
+		allContent = append(allContent, strings.Join(boxStr, "\n"))
 	}
 
-	return outputStr.String()
+	return boxStyle.Render(strings.Join(allContent, "\n\n"))
 }
