@@ -41,24 +41,24 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (s State) View() string {
 	var outputStr strings.Builder
+	boxStyle := lipgloss.NewStyle().Border(lipgloss.BlockBorder()).Padding(1).Width(s.Width - 2).Align(lipgloss.Center)
 
 	for _, box := range s.boxes {
 		if !box.isNotEmplty {
 			continue
 		}
 
-		boxStyle := lipgloss.NewStyle().Border(lipgloss.BlockBorder()).Padding(1).Width(s.Width).Align(lipgloss.Center)
-		var boxStr strings.Builder
+		boxStr := make([]string, 0)
 		for _, context := range box.context {
 			switch ctx := context.(type) {
 			case string:
-				boxStr.WriteString(lipgloss.NewStyle().Bold(true).Render(ctx) + "\n")
-			case textinput.Model:
-				boxStr.WriteString(ctx.View() + "\n")
+				boxStr = append(boxStr, ctx)
+			case *textinput.Model:
+				boxStr = append(boxStr, ctx.View())
 			}
 		}
 
-		outputStr.WriteString(boxStyle.Render(boxStr.String()) + "\n")
+		outputStr.WriteString(boxStyle.Render(strings.Join(boxStr, "\n")))
 	}
 
 	return outputStr.String()
