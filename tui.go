@@ -29,18 +29,14 @@ func drawTui(doc *html.Node) (State, error) {
 		}
 
 		for childNode := range node.ChildNodes() {
-			if strings.TrimSpace(node.Data) == "" {
+			if strings.TrimSpace(childNode.Data) == "" {
 				continue
 			}
 
 			switch childNode.Type {
-			case html.TextNode:
-				box.isNotEmplty = true
-				text := getText(childNode)
-				box.texts = append(box.texts, text)
-				box.context = append(box.context, text)
 			case html.ElementNode:
-				if childNode.Data == "input" {
+				switch childNode.Data {
+				case "input":
 					input := textinput.New()
 
 					placeholderValue, err := foundAttr(&childNode.Attr, "value")
@@ -52,6 +48,16 @@ func drawTui(doc *html.Node) (State, error) {
 
 					box.inputs = append(box.inputs, input)
 					box.context = append(box.context, input)
+				case "h1":
+					text := getText(childNode.FirstChild)
+					box.isNotEmplty = true
+					box.texts = append(box.texts, text)
+					box.context = append(box.context, text)
+				case "p":
+					text := getText(childNode.FirstChild)
+					box.isNotEmplty = true
+					box.texts = append(box.texts, text)
+					box.context = append(box.context, text)
 				}
 			default:
 				continue
