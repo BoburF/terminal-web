@@ -9,6 +9,52 @@ import (
 )
 
 func drawTui(doc *html.Node) (State, error) {
+	boxes := parseMain(doc)
+
+	controllers := parseControlls(doc)
+
+	return State{boxes: boxes, interactivity: controllers}, nil
+}
+
+func parseControlls(doc *html.Node) []Controller {
+	controllers := make([]Controller, 0)
+
+	controllersSection, err := foundHTMLNodeWithAttr(doc, "div", "class", "controllers")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	for node := range controllersSection.ChildNodes() {
+		if strings.TrimSpace(node.Data) == "" {
+			continue
+		}
+
+		button := Controller{}
+
+		switch node.Data {
+		case "button":
+			text := getText(node.FirstChild)
+			controllType, err := foundAttr(&node.Attr, "type")
+			if err != nil {
+				log.Fatalln(err)
+			}
+			bindingType, err := foundAttr(&node.Attr, "bind")
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			button.name = text
+			button.event = controllType.Val
+			button.combination = bindingType.Val
+
+			controllers = append(controllers, button)
+		}
+	}
+
+	return controllers
+}
+
+func parseMain(doc *html.Node) []Box {
 	boxes := make([]Box, 0)
 
 	main, err := foundHTMLNodeWithAttr(doc, "div", "class", "main")
@@ -67,7 +113,7 @@ func drawTui(doc *html.Node) (State, error) {
 		boxes = append(boxes, box)
 	}
 
-	return State{boxes: boxes}, nil
+	return boxes
 }
 
 func getText(node *html.Node) string {
@@ -75,5 +121,5 @@ func getText(node *html.Node) string {
 		return getText(node.NextSibling)
 	}
 
-	return node.Data
+	return strings.TrimSpace(node.Data)
 }

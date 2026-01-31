@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -15,10 +16,18 @@ type Box struct {
 	context     []any
 }
 
+type Controller struct {
+	event       string
+	combination string
+	name        string
+}
+
 type State struct {
-	Width  int
-	Height int
-	boxes  []Box
+	Width         int
+	Height        int
+	boxes         []Box
+	interactivity []Controller
+	quitting      bool
 }
 
 func (s State) Init() tea.Cmd {
@@ -26,26 +35,38 @@ func (s State) Init() tea.Cmd {
 }
 
 func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
+			s.quitting = true
 			return s, tea.Quit
 		}
 	}
 
-	return s, cmd
+	return s, nil
 }
 
 func (s State) View() string {
+	if s.quitting {
+		return ""
+	}
+
 	var allContent []string
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.BlockBorder()).
 		Padding(1).
 		Width(s.Width - 2).
-		Align(lipgloss.Center)
+		Height(s.Height - 2).
+		Align(lipgloss.Left)
+
+	controllerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#059669")).
+		Bold(true)
+
+	bindingStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#7C3AED")).
+		Bold(true)
 
 	for _, box := range s.boxes {
 		if !box.isNotEmplty {
@@ -65,5 +86,29 @@ func (s State) View() string {
 		allContent = append(allContent, strings.Join(boxStr, "\n"))
 	}
 
-	return boxStyle.Render(strings.Join(allContent, "\n\n"))
+	var controllerParts []string
+	for _, controller := range s.interactivity {
+		name := controllerStyle.Render(controller.name)
+		binding := bindingStyle.Render(fmt.Sprintf("[%s]", controller.combination))
+		controllerParts = append(controllerParts, fmt.Sprintf("%s %s", name, binding))
+	}
+
+	availableHeight := s.Height - 4
+	contentHeight := len(allContent)
+	if len(controllerParts) > 0 {
+		contentHeight++
+	}
+
+	spacing := availableHeight - contentHeight
+	if spacing > 0 && len(controllerParts) > 0 {
+		for range spacing {
+			allContent = append(allContent, "")
+		}
+	}
+
+	if len(controllerParts) > 0 {
+		allContent = append(allContent, strings.Join(controllerParts, "  "))
+	}
+
+	return boxStyle.Render(strings.Join(allContent, "\n"))
 }

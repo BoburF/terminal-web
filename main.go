@@ -56,8 +56,8 @@ func main() {
 			p := tea.NewProgram(state)
 			if _, err := p.Run(); err != nil {
 				log.Fatalln(err)
+				os.Exit(1)
 			}
-			return
 		}
 	}
 }
