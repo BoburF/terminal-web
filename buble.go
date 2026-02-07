@@ -95,9 +95,10 @@ func (s State) View() string {
 	}
 
 	availableHeight := s.Height - 6
-	contentHeight := len(allContent)
-	if len(controllerParts) > 0 {
-		contentHeight++
+
+	contentHeight := 0
+	for _, content := range allContent {
+		contentHeight += strings.Count(content, "\n") + 1
 	}
 
 	spacing := availableHeight - contentHeight
