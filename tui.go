@@ -34,6 +34,7 @@ func parseControlls(doc *html.Node) []Controller {
 		switch node.Data {
 		case "button":
 			text := getText(node.FirstChild)
+			text = strings.Join(strings.Fields(text), " ")
 			controllType, err := foundAttr(&node.Attr, "type")
 			if err != nil {
 				log.Fatalln(err)
@@ -96,11 +97,13 @@ func parseMain(doc *html.Node) []Box {
 					box.context = append(box.context, input)
 				case "h1":
 					text := getText(childNode.FirstChild)
+					text = strings.Join(strings.Fields(text), " ")
 					box.isNotEmplty = true
 					box.texts = append(box.texts, text)
 					box.context = append(box.context, text)
 				case "p":
 					text := getText(childNode.FirstChild)
+					text = strings.Join(strings.Fields(text), " ")
 					box.isNotEmplty = true
 					box.texts = append(box.texts, text)
 					box.context = append(box.context, text)
@@ -121,5 +124,5 @@ func getText(node *html.Node) string {
 		return getText(node.NextSibling)
 	}
 
-	return strings.TrimSpace(node.Data)
+	return node.Data
 }

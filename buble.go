@@ -54,11 +54,12 @@ func (s State) View() string {
 
 	var allContent []string
 	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.BlockBorder()).
+		Border(lipgloss.NormalBorder()).
 		Padding(1).
 		Width(s.Width - 2).
 		Height(s.Height - 2).
-		Align(lipgloss.Left)
+		AlignHorizontal(lipgloss.Left).
+		AlignVertical(lipgloss.Top)
 
 	controllerStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#059669")).
@@ -93,7 +94,7 @@ func (s State) View() string {
 		controllerParts = append(controllerParts, fmt.Sprintf("%s %s", name, binding))
 	}
 
-	availableHeight := s.Height - 4
+	availableHeight := s.Height - 6
 	contentHeight := len(allContent)
 	if len(controllerParts) > 0 {
 		contentHeight++
