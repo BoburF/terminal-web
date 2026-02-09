@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -17,6 +18,22 @@ const (
 )
 
 func main() {
+	serverMode := flag.Bool("server", false, "Run as SSH server")
+	port := flag.String("port", SSHPort, "SSH server port (only used with -server)")
+	flag.Parse()
+
+	if *serverMode {
+		sshServer := NewSSHServer(*port)
+		if err := sshServer.Start(); err != nil {
+			log.Fatalf("Failed to start SSH server: %v", err)
+		}
+		return
+	}
+
+	runLocalMode()
+}
+
+func runLocalMode() {
 	fd := int(os.Stdout.Fd())
 
 	if !term.IsTerminal(fd) {

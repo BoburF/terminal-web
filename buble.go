@@ -28,6 +28,7 @@ type State struct {
 	boxes         []Box
 	interactivity []Controller
 	quitting      bool
+	session       any
 }
 
 func (s State) Init() tea.Cmd {
@@ -36,8 +37,29 @@ func (s State) Init() tea.Cmd {
 
 func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		s.Width = msg.Width
+		s.Height = msg.Height
+		return s, nil
+
 	case tea.KeyMsg:
-		switch msg.String() {
+		keyStr := msg.String()
+
+		if binding, ok := GetLuaBinding(keyStr); ok {
+			cmd := binding()
+			if cmd != nil {
+				s.quitting = true
+			}
+			return s, cmd
+		}
+
+		for _, ctrl := range s.interactivity {
+			if ctrl.combination == keyStr {
+				return s.handleController(ctrl)
+			}
+		}
+
+		switch keyStr {
 		case "ctrl+c", "q":
 			s.quitting = true
 			return s, tea.Quit
@@ -45,6 +67,18 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return s, nil
+}
+
+func (s State) handleController(ctrl Controller) (tea.Model, tea.Cmd) {
+	switch ctrl.event {
+	case "exit":
+		s.quitting = true
+		return s, tea.Quit
+	case "switch-sections":
+		return s, nil
+	default:
+		return s, nil
+	}
 }
 
 func (s State) View() string {
