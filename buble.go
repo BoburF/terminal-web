@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -23,12 +24,15 @@ type Controller struct {
 }
 
 type State struct {
-	Width         int
-	Height        int
-	boxes         []Box
-	interactivity []Controller
-	quitting      bool
-	session       any
+	Width               int
+	Height              int
+	boxes               []Box
+	interactivity       []Controller
+	quitting            bool
+	session             any
+	currentSection      int
+	sectionScrollOffset int
+	pendingSectionNum   string
 }
 
 func (s State) Init() tea.Cmd {
@@ -45,24 +49,72 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		keyStr := msg.String()
 
-		if binding, ok := GetLuaBinding(keyStr); ok {
-			cmd := binding()
-			if cmd != nil {
-				s.quitting = true
+		if len(keyStr) == 1 && keyStr >= "0" && keyStr <= "9" {
+			s.pendingSectionNum += keyStr
+			return s, nil
+		}
+
+		if keyStr == "esc" {
+			s.pendingSectionNum = ""
+			return s, nil
+		}
+
+		switch keyStr {
+		case "tab":
+			if s.pendingSectionNum != "" {
+				sectionNum, _ := strconv.Atoi(s.pendingSectionNum)
+				s.pendingSectionNum = ""
+				if sectionNum > 0 {
+					s.currentSection = sectionNum - 1
+					if s.currentSection >= len(s.boxes) {
+						s.currentSection = len(s.boxes) - 1
+					}
+					s.sectionScrollOffset = 0
+				}
+			} else {
+				s.currentSection++
+				if s.currentSection >= len(s.boxes) {
+					s.currentSection = 0
+				}
+				s.sectionScrollOffset = 0
 			}
-			return s, cmd
+			return s, nil
+		case "shift+tab":
+			s.currentSection--
+			if s.currentSection < 0 {
+				s.currentSection = len(s.boxes) - 1
+			}
+			s.sectionScrollOffset = 0
+			s.pendingSectionNum = ""
+			return s, nil
+		case "j", "down":
+			if s.shouldScrollInternally() {
+				s.sectionScrollOffset++
+				maxOffset := s.getMaxScrollOffset()
+				if s.sectionScrollOffset > maxOffset {
+					s.sectionScrollOffset = maxOffset
+				}
+			}
+			s.pendingSectionNum = ""
+			return s, nil
+		case "k", "up":
+			if s.shouldScrollInternally() {
+				s.sectionScrollOffset--
+				if s.sectionScrollOffset < 0 {
+					s.sectionScrollOffset = 0
+				}
+			}
+			s.pendingSectionNum = ""
+			return s, nil
+		case "ctrl+c", "q":
+			s.quitting = true
+			return s, tea.Quit
 		}
 
 		for _, ctrl := range s.interactivity {
 			if ctrl.combination == keyStr {
 				return s.handleController(ctrl)
 			}
-		}
-
-		switch keyStr {
-		case "ctrl+c", "q":
-			s.quitting = true
-			return s, tea.Quit
 		}
 	}
 
@@ -75,10 +127,44 @@ func (s State) handleController(ctrl Controller) (tea.Model, tea.Cmd) {
 		s.quitting = true
 		return s, tea.Quit
 	case "switch-sections":
+		s.currentSection++
+		if s.currentSection >= len(s.boxes) {
+			s.currentSection = 0
+		}
+		s.sectionScrollOffset = 0
 		return s, nil
 	default:
 		return s, nil
 	}
+}
+
+func (s State) getContentHeight() int {
+	return s.Height - 6
+}
+
+func (s State) getSectionHeight(sectionIdx int) int {
+	if sectionIdx < 0 || sectionIdx >= len(s.boxes) {
+		return 0
+	}
+	box := s.boxes[sectionIdx]
+	lineCount := 0
+	for _, ctx := range box.context {
+		switch content := ctx.(type) {
+		case string:
+			lineCount += strings.Count(content, "\n") + 1
+		case *textinput.Model:
+			lineCount += 1
+		}
+	}
+	return lineCount
+}
+
+func (s State) shouldScrollInternally() bool {
+	return s.getSectionHeight(s.currentSection) > s.getContentHeight()
+}
+
+func (s State) getMaxScrollOffset() int {
+	return s.getSectionHeight(s.currentSection) - s.getContentHeight()
 }
 
 func (s State) View() string {
@@ -86,14 +172,23 @@ func (s State) View() string {
 		return ""
 	}
 
-	var allContent []string
+	if s.currentSection >= len(s.boxes) {
+		return ""
+	}
+
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Padding(1).
 		Width(s.Width - 2).
-		Height(s.Height - 2).
+		Height(s.getContentHeight() + 2).
 		AlignHorizontal(lipgloss.Left).
 		AlignVertical(lipgloss.Top)
+
+	indicatorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#3B82F6")).
+		Bold(true).
+		Width(s.Width - 2).
+		AlignHorizontal(lipgloss.Center)
 
 	controllerStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#059669")).
@@ -103,22 +198,39 @@ func (s State) View() string {
 		Foreground(lipgloss.Color("#7C3AED")).
 		Bold(true)
 
-	for _, box := range s.boxes {
-		if !box.isNotEmplty {
-			continue
-		}
+	pendingStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F59E0B")).
+		Bold(true)
 
-		boxStr := make([]string, 0)
-		for _, context := range box.context {
-			switch ctx := context.(type) {
-			case string:
-				boxStr = append(boxStr, ctx)
-			case *textinput.Model:
-				boxStr = append(boxStr, ctx.View())
-			}
-		}
+	box := s.boxes[s.currentSection]
 
-		allContent = append(allContent, strings.Join(boxStr, "\n"))
+	var contentLines []string
+	for _, ctx := range box.context {
+		switch content := ctx.(type) {
+		case string:
+			contentLines = append(contentLines, strings.Split(content, "\n")...)
+		case *textinput.Model:
+			contentLines = append(contentLines, content.View())
+		}
+	}
+
+	visibleHeight := s.getContentHeight()
+	if len(contentLines) > visibleHeight {
+		endIdx := s.sectionScrollOffset + visibleHeight
+		if endIdx > len(contentLines) {
+			endIdx = len(contentLines)
+		}
+		contentLines = contentLines[s.sectionScrollOffset:endIdx]
+	}
+
+	sectionNum := s.currentSection + 1
+	totalSections := len(s.boxes)
+
+	var indicatorText string
+	if s.pendingSectionNum != "" {
+		indicatorText = pendingStyle.Render(fmt.Sprintf("%d/%d: Jumping to section %s...", sectionNum, totalSections, s.pendingSectionNum))
+	} else {
+		indicatorText = indicatorStyle.Render(fmt.Sprintf("%d/%d: %s - Press Tab to switch", sectionNum, totalSections, getSectionTitle(box)))
 	}
 
 	var controllerParts []string
@@ -128,23 +240,18 @@ func (s State) View() string {
 		controllerParts = append(controllerParts, fmt.Sprintf("%s %s", name, binding))
 	}
 
-	availableHeight := s.Height - 6
+	controllerLine := strings.Join(controllerParts, "  ")
 
-	contentHeight := 0
-	for _, content := range allContent {
-		contentHeight += strings.Count(content, "\n") + 1
-	}
+	result := indicatorText + "\n" + boxStyle.Render(strings.Join(contentLines, "\n")) + "\n" + controllerLine
 
-	spacing := availableHeight - contentHeight
-	if spacing > 0 && len(controllerParts) > 0 {
-		for range spacing {
-			allContent = append(allContent, "")
+	return result
+}
+
+func getSectionTitle(box Box) string {
+	for _, ctx := range box.context {
+		if str, ok := ctx.(string); ok {
+			return str
 		}
 	}
-
-	if len(controllerParts) > 0 {
-		allContent = append(allContent, strings.Join(controllerParts, "  "))
-	}
-
-	return boxStyle.Render(strings.Join(allContent, "\n"))
+	return "Section"
 }
