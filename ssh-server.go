@@ -352,6 +352,9 @@ func (s *SSHServer) runTUIWithTimeout(ctx context.Context, tty *os.File, width, 
 			state.Height = height
 			state.session = sess
 
+			// Set TERM environment variable for color support in lipgloss
+			os.Setenv("TERM", "xterm-256color")
+
 			p := tea.NewProgram(
 				state,
 				tea.WithInput(tty),

@@ -42,7 +42,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Server: ServerConfig{
 			Host:    "0.0.0.0",
-			Port:    "4569",
+			Port:    "22",
 			HostKey: "keys/ssh_host_ed25519_key",
 		},
 		Security: SecurityConfig{

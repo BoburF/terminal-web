@@ -2,7 +2,7 @@
 
 # Variables
 BINARY_NAME := terminal-web
-PORT := 4569
+PORT := 22
 LOG_FILE := logs/terminal-web.log
 GO_FILES := $(shell find . -name '*.go' -not -path './vendor/*')
 
