@@ -66,11 +66,31 @@ restart-server: stop-server
 # Run SSH server in background
 start-server: build setup
 	@echo "Starting SSH server on port $(PORT) in background..."
-	@./$(BINARY_NAME) -server -port $(PORT) >> $(LOG_FILE) 2>&1 &
+	@echo ""
+	@echo "To preserve colors when using sudo, run: sudo -E make start-server"
+	@echo ""
+	@export TERM=xterm-256color; export COLORTERM=truecolor; ./$(BINARY_NAME) -server -port $(PORT) >> $(LOG_FILE) 2>&1 &
 	@sleep 1
 	@pid=$$(pgrep -f "$(BINARY_NAME) -server.*$(PORT)" | head -1); \
 	if [ -n "$$pid" ]; then \
 		echo "SSH server started. PID: $$pid"; \
+		echo "Connect with: ssh -p $(PORT) localhost"; \
+		echo "View logs: tail -f $(LOG_FILE)"; \
+	else \
+		echo "Failed to start server. Check logs: $(LOG_FILE)"; \
+	fi
+
+# Run SSH server with sudo and preserve environment (recommended for full color support)
+start-server-sudo: build setup
+	@echo "Starting SSH server with sudo on port $(PORT) in background..."
+	@echo ""
+	@echo "Using 'sudo -E' to preserve environment variables for color support"
+	@echo ""
+	@sudo -E env TERM=xterm-256color COLORTERM=truecolor ./$(BINARY_NAME) -server -port $(PORT) >> $(LOG_FILE) 2>&1 &
+	@sleep 1
+	@pid=$$(pgrep -f "$(BINARY_NAME) -server.*$(PORT)" | head -1); \
+	if [ -n "$$pid" ]; then \
+		echo "SSH server started with sudo. PID: $$pid"; \
 		echo "Connect with: ssh -p $(PORT) localhost"; \
 		echo "View logs: tail -f $(LOG_FILE)"; \
 	else \
@@ -244,6 +264,7 @@ help:
 	@echo "  make run              - Run in local mode"
 	@echo "  make run-server       - Run SSH server (foreground, blocks terminal)"
 	@echo "  make start-server     - Start SSH server in background"
+	@echo "  make start-server-sudo - Start SSH server with sudo (preserves colors)"
 	@echo "  make stop-server      - Stop background SSH server"
 	@echo "  make restart-server   - Restart SSH server"
 	@echo "  make status           - Check if server is running"

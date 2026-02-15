@@ -11,8 +11,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
+	"github.com/muesli/termenv"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/net/html"
 )
@@ -324,6 +326,10 @@ func (s *SSHServer) secureSessionHandler(sess ssh.Session) {
 
 // runTUIWithTimeout runs the TUI with session timeout handling
 func (s *SSHServer) runTUIWithTimeout(ctx context.Context, tty *os.File, width, height int, sess ssh.Session, sessionID string) {
+	// Set TERM environment variable for color support in lipgloss (before anything else)
+	os.Setenv("TERM", "xterm-256color")
+	os.Setenv("COLORTERM", "truecolor")
+
 	file, err := os.OpenFile(RootPath+"index.html", os.O_RDONLY, 0o644)
 	if err != nil {
 		fmt.Fprintf(tty, "Error opening resume: %v\r\n", err)
@@ -352,8 +358,8 @@ func (s *SSHServer) runTUIWithTimeout(ctx context.Context, tty *os.File, width, 
 			state.Height = height
 			state.session = sess
 
-			// Set TERM environment variable for color support in lipgloss
-			os.Setenv("TERM", "xterm-256color")
+			// Force true color profile for lipgloss rendering
+			lipgloss.SetColorProfile(termenv.TrueColor)
 
 			p := tea.NewProgram(
 				state,
