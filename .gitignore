@@ -30,3 +30,16 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# SSH Host Keys (private keys should never be committed)
+keys/ssh_host_*
+!keys/.gitkeep
+!keys/ssh_host_ed25519_key.pub
+
+# Application Logs
+logs/*.log
+logs/*.log.*
+!logs/.gitkeep
+
+# Binary
+terminal-web.git

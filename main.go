@@ -19,11 +19,23 @@ const (
 
 func main() {
 	serverMode := flag.Bool("server", false, "Run as SSH server")
-	port := flag.String("port", SSHPort, "SSH server port (only used with -server)")
+	port := flag.String("port", "", "SSH server port (overrides default 4569)")
 	flag.Parse()
 
 	if *serverMode {
-		sshServer := NewSSHServer(*port)
+		// Load default configuration
+		config := DefaultConfig()
+
+		// Override port if provided
+		if *port != "" {
+			config.Server.Port = *port
+		}
+
+		sshServer, err := NewSSHServer(config)
+		if err != nil {
+			log.Fatalf("Failed to initialize SSH server: %v", err)
+		}
+
 		if err := sshServer.Start(); err != nil {
 			log.Fatalf("Failed to start SSH server: %v", err)
 		}
