@@ -9,11 +9,11 @@ import (
 )
 
 func drawTui(doc *html.Node) (State, error) {
-	boxes := parseMain(doc)
+	boxes, sectionTitles := parseMain(doc)
 
 	controllers := parseControlls(doc)
 
-	return State{boxes: boxes, interactivity: controllers}, nil
+	return State{boxes: boxes, interactivity: controllers, sectionTitles: sectionTitles}, nil
 }
 
 func parseControlls(doc *html.Node) []Controller {
@@ -55,8 +55,9 @@ func parseControlls(doc *html.Node) []Controller {
 	return controllers
 }
 
-func parseMain(doc *html.Node) []Box {
+func parseMain(doc *html.Node) ([]Box, []string) {
 	boxes := make([]Box, 0)
+	sectionTitles := make([]string, 0)
 
 	main, err := foundHTMLNodeWithAttr(doc, "div", "class", "main")
 	if err != nil {
@@ -74,6 +75,13 @@ func parseMain(doc *html.Node) []Box {
 			inputs:      make([]textinput.Model, 0),
 			context:     make([]any, 0),
 		}
+
+		// Extract section-title attribute
+		sectionTitle := "Section"
+		if titleAttr, err := foundAttr(&node.Attr, "section-title"); err == nil {
+			sectionTitle = titleAttr.Val
+		}
+		sectionTitles = append(sectionTitles, sectionTitle)
 
 		for childNode := range node.ChildNodes() {
 			if strings.TrimSpace(childNode.Data) == "" {
@@ -96,17 +104,21 @@ func parseMain(doc *html.Node) []Box {
 					box.inputs = append(box.inputs, input)
 					box.context = append(box.context, input)
 				case "h1":
-					text := getText(childNode.FirstChild)
-					text = strings.Join(strings.Fields(text), " ")
-					box.isNotEmplty = true
-					box.texts = append(box.texts, text)
-					box.context = append(box.context, text)
+					if childNode.FirstChild != nil {
+						text := getText(childNode.FirstChild)
+						text = strings.Join(strings.Fields(text), " ")
+						box.isNotEmplty = true
+						box.texts = append(box.texts, text)
+						box.context = append(box.context, text)
+					}
 				case "p":
-					text := getText(childNode.FirstChild)
-					text = strings.Join(strings.Fields(text), " ")
-					box.isNotEmplty = true
-					box.texts = append(box.texts, text)
-					box.context = append(box.context, text)
+					if childNode.FirstChild != nil {
+						text := getText(childNode.FirstChild)
+						text = strings.Join(strings.Fields(text), " ")
+						box.isNotEmplty = true
+						box.texts = append(box.texts, text)
+						box.context = append(box.context, text)
+					}
 				}
 			default:
 				continue
@@ -116,10 +128,13 @@ func parseMain(doc *html.Node) []Box {
 		boxes = append(boxes, box)
 	}
 
-	return boxes
+	return boxes, sectionTitles
 }
 
 func getText(node *html.Node) string {
+	if node == nil {
+		return ""
+	}
 	if strings.TrimSpace(node.Data) == "" {
 		return getText(node.NextSibling)
 	}

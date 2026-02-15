@@ -33,6 +33,7 @@ type State struct {
 	currentSection      int
 	sectionScrollOffset int
 	pendingSectionNum   string
+	sectionTitles       []string
 }
 
 func (s State) Init() tea.Cmd {
@@ -176,10 +177,19 @@ func (s State) View() string {
 		return ""
 	}
 
+	// Fixed 25% sidebar with minimum constraints
+	sidebarWidth := int(float64(s.Width) * 0.25)
+	// Minimum sidebar width: 15 chars, Maximum: don't exceed terminal
+	if sidebarWidth < 15 {
+		sidebarWidth = 15
+	}
+	// Content width: remaining space minus borders and gap
+	contentWidth := s.Width - sidebarWidth - 4 // -4 for both boxes borders (2+2)
+
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Padding(1).
-		Width(s.Width - 2).
+		Width(contentWidth).
 		Height(s.getContentHeight() + 2).
 		AlignHorizontal(lipgloss.Left).
 		AlignVertical(lipgloss.Top)
@@ -201,6 +211,27 @@ func (s State) View() string {
 	pendingStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#F59E0B")).
 		Bold(true)
+
+	// Sidebar styles
+	sidebarStyle := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		Padding(1).
+		Width(sidebarWidth).
+		Height(s.getContentHeight() + 2).
+		AlignHorizontal(lipgloss.Left).
+		AlignVertical(lipgloss.Top)
+
+	sidebarHeaderStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#3B82F6")).
+		Bold(true).
+		Underline(true)
+
+	sidebarActiveStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#F59E0B")).
+		Bold(true)
+
+	sidebarInactiveStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#059669"))
 
 	box := s.boxes[s.currentSection]
 
@@ -242,7 +273,42 @@ func (s State) View() string {
 
 	controllerLine := strings.Join(controllerParts, "  ")
 
-	result := indicatorText + "\n" + boxStyle.Render(strings.Join(contentLines, "\n")) + "\n" + controllerLine
+	// Build sidebar content
+	var sidebarLines []string
+	sidebarLines = append(sidebarLines, sidebarHeaderStyle.Render("Sections"))
+	sidebarLines = append(sidebarLines, "")
+
+	// Calculate available width for section labels (account for borders, padding, and prefix)
+	// sidebarWidth - 2 (borders) - 2 (padding) - 2 (prefix "→ " or "  ") = usable space
+	maxLabelWidth := sidebarWidth - 6
+	if maxLabelWidth < 5 {
+		maxLabelWidth = 5
+	}
+
+	for i, title := range s.sectionTitles {
+		sectionLabel := fmt.Sprintf("[%d] %s", i+1, title)
+		// Truncate if exceeds available width
+		if len(sectionLabel) > maxLabelWidth {
+			sectionLabel = truncateString(sectionLabel, maxLabelWidth)
+		}
+		if i == s.currentSection {
+			sidebarLines = append(sidebarLines, sidebarActiveStyle.Render("→ "+sectionLabel))
+		} else {
+			sidebarLines = append(sidebarLines, sidebarInactiveStyle.Render("  "+sectionLabel))
+		}
+	}
+
+	// Join sidebar lines and render
+	sidebarContent := strings.Join(sidebarLines, "\n")
+	sidebarRendered := sidebarStyle.Render(sidebarContent)
+
+	// Join content lines and render
+	contentRendered := boxStyle.Render(strings.Join(contentLines, "\n"))
+
+	// Combine content and sidebar horizontally
+	mainContent := lipgloss.JoinHorizontal(lipgloss.Top, contentRendered, sidebarRendered)
+
+	result := indicatorText + "\n" + mainContent + "\n" + controllerLine
 
 	return result
 }
@@ -254,4 +320,14 @@ func getSectionTitle(box Box) string {
 		}
 	}
 	return "Section"
+}
+
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	if maxLen <= 3 {
+		return s[:maxLen]
+	}
+	return s[:maxLen-3] + "..."
 }
