@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/BoburF/terminal-web.git/internal/page"
 )
 
 type Box struct {
@@ -15,6 +17,8 @@ type Box struct {
 	texts       []string
 	inputs      []textinput.Model
 	context     []any
+	IsPageLink  bool
+	PageTarget  string
 }
 
 type Controller struct {
@@ -34,6 +38,16 @@ type State struct {
 	sectionScrollOffset int
 	pendingSectionNum   string
 	sectionTitles       []string
+	pages               []page.PageInfo
+	currentPageIdx      int
+	pageHistory         []int
+	showPagePrompt      bool
+	pendingPageIdx      int
+	promptMessage       string
+	notSwitchedMsg      string
+	notSwitchedTimer    int
+	pageLinks           []page.PageLink
+	lastTabPressed      bool
 }
 
 func (s State) Init() tea.Cmd {
@@ -57,6 +71,56 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if keyStr == "esc" {
 			s.pendingSectionNum = ""
+			if s.showPagePrompt {
+				s.showPagePrompt = false
+				s.notSwitchedMsg = "Not switched"
+				s.notSwitchedTimer = 3
+				s.currentSection++
+				if s.currentSection >= len(s.boxes) {
+					s.currentSection = 0
+				}
+				s.sectionScrollOffset = 0
+				return s, nil
+			}
+			return s, nil
+		}
+
+		if s.showPagePrompt {
+			switch keyStr {
+			case "enter":
+				s.lastTabPressed = false
+				return s.confirmPageSwitch()
+			case "y":
+				s.lastTabPressed = false
+				return s.confirmPageSwitch()
+			case "n":
+				s.showPagePrompt = false
+				s.notSwitchedMsg = "Not switched"
+				s.notSwitchedTimer = 3
+				s.currentSection++
+				if s.currentSection >= len(s.boxes) {
+					s.currentSection = 0
+				}
+				s.sectionScrollOffset = 0
+				s.lastTabPressed = false
+				return s, nil
+			}
+			return s, nil
+		}
+
+		if keyStr == "enter" && s.lastTabPressed {
+			s.lastTabPressed = false
+			if s.currentSection >= 0 && s.currentSection < len(s.pageLinks) {
+				link := s.pageLinks[s.currentSection]
+				if link.Target != "" {
+					pageIdx := s.findPageIndex(link.Target)
+					if pageIdx >= 0 {
+						s.pendingPageIdx = pageIdx
+						s.promptMessage = link.SectionTitle
+						return s.confirmPageSwitch()
+					}
+				}
+			}
 			return s, nil
 		}
 
@@ -79,6 +143,7 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				s.sectionScrollOffset = 0
 			}
+			s.lastTabPressed = true
 			return s, nil
 		case "shift+tab":
 			s.currentSection--
@@ -87,8 +152,10 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			s.sectionScrollOffset = 0
 			s.pendingSectionNum = ""
+			s.lastTabPressed = false
 			return s, nil
 		case "j", "down":
+			s.lastTabPressed = false
 			if s.shouldScrollInternally() {
 				s.sectionScrollOffset++
 				maxOffset := s.getMaxScrollOffset()
@@ -99,6 +166,7 @@ func (s State) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.pendingSectionNum = ""
 			return s, nil
 		case "k", "up":
+			s.lastTabPressed = false
 			if s.shouldScrollInternally() {
 				s.sectionScrollOffset--
 				if s.sectionScrollOffset < 0 {
@@ -134,9 +202,149 @@ func (s State) handleController(ctrl Controller) (tea.Model, tea.Cmd) {
 		}
 		s.sectionScrollOffset = 0
 		return s, nil
+	case "back":
+		return s.navigateBack()
 	default:
 		return s, nil
 	}
+}
+
+func (s State) confirmPageSwitch() (State, tea.Cmd) {
+	if s.pendingPageIdx >= 0 && s.pendingPageIdx < len(s.pages) {
+		pageInfo := s.pages[s.pendingPageIdx]
+
+		body, err := page.LoadPage(pageInfo.Filename)
+		if err != nil {
+			s.showPagePrompt = false
+			s.notSwitchedMsg = "Error loading page"
+			s.notSwitchedTimer = 3
+			return s, nil
+		}
+
+		boxes, sectionTitles, pageLinks := parseMain(body)
+		controllers := parseControlls(body)
+
+		s.pageHistory = append(s.pageHistory, s.currentPageIdx)
+		s.currentPageIdx = s.pendingPageIdx
+		s.boxes = boxes
+		s.sectionTitles = sectionTitles
+		s.pageLinks = pageLinks
+		s.interactivity = controllers
+		s.currentSection = 0
+		s.sectionScrollOffset = 0
+		s.showPagePrompt = false
+		s.pendingPageIdx = 0
+		s.promptMessage = ""
+	}
+	return s, nil
+}
+
+func (s State) navigateBack() (State, tea.Cmd) {
+	if len(s.pageHistory) > 0 {
+		lastIdx := len(s.pageHistory) - 1
+		prevPageIdx := s.pageHistory[lastIdx]
+		s.pageHistory = s.pageHistory[:lastIdx]
+
+		if prevPageIdx >= 0 && prevPageIdx < len(s.pages) {
+			pageInfo := s.pages[prevPageIdx]
+			body, err := page.LoadPage(pageInfo.Filename)
+			if err == nil {
+				boxes, sectionTitles, pageLinks := parseMain(body)
+				controllers := parseControlls(body)
+
+				s.boxes = boxes
+				s.sectionTitles = sectionTitles
+				s.pageLinks = pageLinks
+				s.interactivity = controllers
+			}
+		}
+
+		s.currentPageIdx = prevPageIdx
+		s.currentSection = 0
+		s.sectionScrollOffset = 0
+	}
+	return s, nil
+}
+
+func (s State) checkPageLinkSection() {
+	if len(s.pageLinks) == 0 {
+		return
+	}
+	if s.currentSection >= 0 && s.currentSection < len(s.pageLinks) {
+		link := s.pageLinks[s.currentSection]
+		if link.Target != "" {
+			s.showPagePrompt = true
+			s.pendingPageIdx = s.findPageIndex(link.Target)
+			s.promptMessage = link.SectionTitle
+		}
+	}
+}
+
+func (s State) findPageIndex(filename string) int {
+	for i, p := range s.pages {
+		if p.Filename == filename {
+			return i
+		}
+	}
+	return -1
+}
+
+func (s State) renderPagePrompt() string {
+	promptWidth := 50
+	promptHeight := 8
+
+	x := (s.Width - promptWidth) / 2
+	y := (s.Height - promptHeight) / 2
+
+	if x < 1 {
+		x = 1
+	}
+	if y < 1 {
+		y = 1
+	}
+
+	promptStyle := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		Width(promptWidth).
+		Height(promptHeight).
+		AlignHorizontal(lipgloss.Center).
+		AlignVertical(lipgloss.Center)
+
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#3B82F6")).
+		Bold(true).
+		Width(promptWidth - 4).
+		AlignHorizontal(lipgloss.Center)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#9CA3AF")).
+		Width(promptWidth - 4).
+		AlignHorizontal(lipgloss.Center)
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#10B981")).
+		Bold(true)
+
+	skipKeyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#EF4444")).
+		Bold(true)
+
+	pageTitle := s.promptMessage
+	if s.pendingPageIdx >= 0 && s.pendingPageIdx < len(s.pages) {
+		pageTitle = s.pages[s.pendingPageIdx].Title
+	}
+
+	promptContent := titleStyle.Render("Navigate to "+pageTitle+"?") + "\n\n"
+	promptContent += descStyle.Render("Press Enter to open this page") + "\n\n"
+	promptContent += keyStyle.Render("[Enter] Open  ")
+
+	if s.notSwitchedMsg != "" && s.notSwitchedTimer > 0 {
+		promptContent += skipKeyStyle.Render("[Esc] Skip")
+	} else {
+		promptContent += skipKeyStyle.Render("[Esc] Skip")
+	}
+
+	return promptStyle.Render(promptContent)
 }
 
 func (s State) getContentHeight() int {
@@ -173,18 +381,30 @@ func (s State) View() string {
 		return ""
 	}
 
+	if s.showPagePrompt {
+		return s.renderPagePrompt()
+	}
+
+	if s.Width < 20 || s.Height < 10 {
+		return "Terminal too small"
+	}
+
 	if s.currentSection >= len(s.boxes) {
 		return ""
 	}
 
 	// Fixed 25% sidebar with minimum constraints
 	sidebarWidth := int(float64(s.Width) * 0.25)
-	// Minimum sidebar width: 15 chars, Maximum: don't exceed terminal
+	// Minimum sidebar width: : don't exceed terminal15 chars, Maximum
 	if sidebarWidth < 15 {
 		sidebarWidth = 15
 	}
 	// Content width: remaining space minus borders and gap
 	contentWidth := s.Width - sidebarWidth - 4 // -4 for both boxes borders (2+2)
+
+	if contentWidth < 10 {
+		contentWidth = 10
+	}
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
@@ -281,8 +501,8 @@ func (s State) View() string {
 	// Calculate available width for section labels (account for borders, padding, and prefix)
 	// sidebarWidth - 2 (borders) - 2 (padding) - 2 (prefix "→ " or "  ") = usable space
 	maxLabelWidth := sidebarWidth - 6
-	if maxLabelWidth < 5 {
-		maxLabelWidth = 5
+	if maxLabelWidth < 1 {
+		maxLabelWidth = 1
 	}
 
 	for i, title := range s.sectionTitles {

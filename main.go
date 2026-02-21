@@ -11,6 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/net/html"
 	"golang.org/x/term"
+
+	"github.com/BoburF/terminal-web.git/internal/page"
 )
 
 const (
@@ -59,6 +61,12 @@ func runLocalMode() {
 		return
 	}
 
+	pages, err := page.DiscoverPages(page.RootPath)
+	if err != nil {
+		log.Printf("Warning: Could not discover pages: %v", err)
+		pages = []page.PageInfo{}
+	}
+
 	file, err := os.OpenFile(RootPath+"index.html", os.O_RDONLY, 0o644)
 	if err != nil {
 		log.Fatalln(err)
@@ -81,6 +89,8 @@ func runLocalMode() {
 			}
 			state.Width = width
 			state.Height = height
+			state.pages = pages
+			state.currentPageIdx = 0
 
 			p := tea.NewProgram(state)
 			if _, err := p.Run(); err != nil {

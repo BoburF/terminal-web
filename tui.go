@@ -6,14 +6,16 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"golang.org/x/net/html"
+
+	"github.com/BoburF/terminal-web.git/internal/page"
 )
 
 func drawTui(doc *html.Node) (State, error) {
-	boxes, sectionTitles := parseMain(doc)
+	boxes, sectionTitles, pageLinks := parseMain(doc)
 
 	controllers := parseControlls(doc)
 
-	return State{boxes: boxes, interactivity: controllers, sectionTitles: sectionTitles}, nil
+	return State{boxes: boxes, interactivity: controllers, sectionTitles: sectionTitles, pageLinks: pageLinks}, nil
 }
 
 func parseControlls(doc *html.Node) []Controller {
@@ -55,9 +57,10 @@ func parseControlls(doc *html.Node) []Controller {
 	return controllers
 }
 
-func parseMain(doc *html.Node) ([]Box, []string) {
+func parseMain(doc *html.Node) ([]Box, []string, []page.PageLink) {
 	boxes := make([]Box, 0)
 	sectionTitles := make([]string, 0)
+	pageLinks := make([]page.PageLink, 0)
 
 	main, err := foundHTMLNodeWithAttr(doc, "div", "class", "main")
 	if err != nil {
@@ -76,12 +79,28 @@ func parseMain(doc *html.Node) ([]Box, []string) {
 			context:     make([]any, 0),
 		}
 
-		// Extract section-title attribute
+		pageLink := page.PageLink{}
+
+		sectionType := ""
+		if typeAttr, err := foundAttr(&node.Attr, "section-type"); err == nil {
+			sectionType = typeAttr.Val
+		}
+
+		if sectionType == "page-link" {
+			if targetAttr, err := foundAttr(&node.Attr, "page-target"); err == nil {
+				pageLink.Target = targetAttr.Val
+				box.IsPageLink = true
+				box.PageTarget = targetAttr.Val
+			}
+		}
+
 		sectionTitle := "Section"
 		if titleAttr, err := foundAttr(&node.Attr, "section-title"); err == nil {
 			sectionTitle = titleAttr.Val
+			pageLink.SectionTitle = titleAttr.Val
 		}
 		sectionTitles = append(sectionTitles, sectionTitle)
+		pageLinks = append(pageLinks, pageLink)
 
 		for childNode := range node.ChildNodes() {
 			if strings.TrimSpace(childNode.Data) == "" {
@@ -128,7 +147,7 @@ func parseMain(doc *html.Node) ([]Box, []string) {
 		boxes = append(boxes, box)
 	}
 
-	return boxes, sectionTitles
+	return boxes, sectionTitles, pageLinks
 }
 
 func getText(node *html.Node) string {
